@@ -48,6 +48,15 @@ resource "aws_subnet" "public_subnet" {
   tags = { Name = "Public-Subnet-A" }
 }
 
+resource "aws_subnet" "public_subnet_b" {
+  vpc_id                  = aws_vpc.app_vpc.id
+  cidr_block              = "10.0.2.0/24" # Use a different CIDR block
+  map_public_ip_on_launch = true
+  # Crucial change: Specify a different AZ (e.g., 'b')
+  availability_zone       = "${var.aws_region}b" 
+  tags                    = { Name = "Public-Subnet-B" }
+}
+
 # --- 3. Security Group (Allows SSH and HTTP) ---
 resource "aws_security_group" "web_sg" {
   vpc_id = aws_vpc.app_vpc.id
@@ -75,14 +84,17 @@ resource "aws_security_group" "web_sg" {
 
 # --- 4. EC2 Instance Cluster (3 Servers - Free Tier) ---
 resource "aws_instance" "app_servers" {
-  count         = 3 
-  # AMI ID is dynamically sourced from the data block above
-  ami           = data.aws_ami.latest_amazon_linux.id 
-  instance_type = "t2.micro" 
+  count         = 3
+  # ... other configurations ...
   key_name      = var.key_pair_name
-  subnet_id     = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [aws_security_group.web_sg.id]
+  
+  # Distribute servers across the two subnets based on the count index
+  subnet_id     = element([
+    aws_subnet.public_subnet.id,
+    aws_subnet.public_subnet_b.id,
+  ], count.index % 2) # This alternates the subnet ID (0%2=0, 1%2=1, 2%2=0...)
 
+  vpc_security_group_ids = [aws_security_group.web_sg.id]
   tags = {
     Name = "App-Server-${count.index + 1}"
   }
@@ -94,6 +106,18 @@ resource "aws_lb" "app_lb" {
   load_balancer_type = "application"
   security_groups    = [aws_security_group.web_sg.id]
   subnets            = [aws_subnet.public_subnet.id]
+}
+
+resource "aws_lb" "app_lb" {
+  name               = "app-lb-cluster"
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.web_sg.id]
+  
+  # Crucial Fix: Add both subnets from different AZs
+  subnets            = [
+    aws_subnet.public_subnet.id,
+    aws_subnet.public_subnet_b.id
+  ]
 }
 
 resource "aws_lb_target_group" "app_tg" {

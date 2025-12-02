@@ -1,0 +1,41 @@
+---
+- name: Setup Docker and deploy Nginx on all cluster nodes
+  hosts: all_cluster_nodes # Dynamic inventory group
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: Ensure Python 3 dependencies are installed
+      ansible.builtin.apt:
+        name: 
+          - python3
+          - python3-pip
+          - software-properties-common
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install required Python dependencies for Docker module
+      pip:
+        name: docker
+        state: present
+
+    - name: Install Docker
+      ansible.builtin.apt:
+        name: docker.io
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Ensure Docker service is running
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Deploy Nginx container
+      community.docker.docker_container:
+        name: web-app
+        image: nginx:latest
+        state: started
+        restart_policy: always
+        published_ports:
+          - "80:80" // Map container port 80 to host port 80
