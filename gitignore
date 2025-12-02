@@ -1,7 +1,5 @@
-# .gitignore
-# Terraform generated files
+# Terraform generated files (MUST be ignored)
 .terraform/
 .terraform.lock.hcl
 *.tfstate
 *.tfstate.*
-crash.log
