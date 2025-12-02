@@ -108,7 +108,7 @@ resource "aws_lb" "app_lb" {
   subnets            = [aws_subnet.public_subnet.id]
 }
 
-resource "aws_lb" "app_lb" {
+resource "aws_lb" "app_lb_secondary" {
   name               = "app-lb-cluster"
   load_balancer_type = "application"
   security_groups    = [aws_security_group.web_sg.id]
